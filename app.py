@@ -18,6 +18,15 @@ from model.workloads import (
     get_bytes_formula_markdown,
 )
 from model.presets import load_workload_presets, load_hardware_presets
+from model.roofline import analyze_detailed
+from model.sensitivity import compute_sensitivity
+from model.logging import (
+    log_run,
+    format_workload_for_log,
+    format_hardware_for_log,
+    format_assumptions_for_log,
+    format_analysis_for_log,
+)
 
 
 def format_number(value: float, precision: int = 2) -> str:
@@ -88,7 +97,7 @@ def main():
     
     # Build preset name lists with "Custom" option
     workload_names = ["Custom"] + [p.name for p in workload_presets]
-    hardware_names = ["Custom"] + [p.name for p in hardware_presets]
+    hardware_names = [p.name for p in hardware_presets]
 
     # Sidebar configuration
     with st.sidebar:
@@ -175,27 +184,14 @@ def main():
         st.divider()
         st.subheader("Assumptions")
         
+        compute_util = st.slider("Compute Utilization", 0.1, 1.0, 0.7, 0.05)
+        bw_util = st.slider("Bandwidth Utilization", 0.1, 1.0, 0.8, 0.05)
+        overlap_factor = st.slider("Overlap Factor", 0.0, 0.5, 0.0, 0.05,
+            help="How much compute and memory operations can overlap (0=none, higher=more overlap benefit)")
         weight_cache_hit_rate = st.slider("Weight Cache Hit Rate", 0.0, 1.0, 0.0, 0.05)
         
         st.divider()
-        
-        # Hardware preset selector
-        st.header("🖥️ Hardware Configuration")
-        selected_hardware = st.selectbox(
-            "📦 Hardware Preset",
-            options=hardware_names,
-            index=1,  # Default to first real preset
-            help="Select a hardware preset for comparison"
-        )
-        
-        # Display selected hardware info
-        if selected_hardware != "Custom":
-            hw_preset = next((p for p in hardware_presets if p.name == selected_hardware), None)
-            if hw_preset:
-                st.caption(f"**{hw_preset.peak_tflops}** TFLOP/s | **{hw_preset.hbm_gbps}** GB/s")
-        
-        st.divider()
-        st.caption("v0.3.0")
+        st.caption("v0.5.0")
 
     # Build workload config using preset values when not custom
     try:
@@ -226,7 +222,12 @@ def main():
                 kv_dtype=kv_dtype,
                 kv_compression=kv_compression,
             )
-        assumptions = Assumptions(weight_cache_hit_rate=weight_cache_hit_rate)
+        assumptions = Assumptions(
+            compute_util=compute_util,
+            bw_util=bw_util,
+            overlap_factor=overlap_factor,
+            weight_cache_hit_rate=weight_cache_hit_rate
+        )
         config_valid = True
     except Exception as e:
         st.error(f"Configuration Error: {e}")
@@ -326,6 +327,222 @@ def main():
             value=f"{decode_ai:.1f} FLOP/byte",
         )
         st.caption("Lower = more memory-bound")
+
+    st.divider()
+
+    # =========================================================================
+    # Hardware Comparison Section (2-4 configs)
+    # =========================================================================
+    st.subheader("🖥️ Hardware Comparison")
+    
+    # Select number of configs to compare
+    num_configs = st.slider(
+        "Number of configurations to compare",
+        min_value=2,
+        max_value=4,
+        value=2,
+        key="num_hw_configs"
+    )
+    
+    # Initialize session state for hardware configs if needed
+    if "hw_configs" not in st.session_state:
+        st.session_state.hw_configs = {}
+    
+    # Create columns for hardware config selection and editing
+    hw_columns = st.columns(num_configs)
+    
+    # Store edited hardware configs
+    edited_hw_configs = []
+    
+    for i, col in enumerate(hw_columns):
+        config_idx = i + 1
+        with col:
+            st.markdown(f"#### Config #{config_idx}")
+            
+            # Preset selector
+            default_idx = min(i, len(hardware_names) - 1)
+            selected_preset = st.selectbox(
+                f"Preset",
+                options=hardware_names,
+                index=default_idx,
+                key=f"hw_preset_{config_idx}"
+            )
+            
+            # Get the preset as baseline
+            base_config = next((p for p in hardware_presets if p.name == selected_preset), hardware_presets[0])
+            
+            # Editable fields
+            edited_name = st.text_input(
+                "Name",
+                value=base_config.name,
+                key=f"hw_name_{config_idx}"
+            )
+            
+            edited_tflops = st.number_input(
+                "Peak TFLOP/s",
+                min_value=1.0,
+                max_value=10000.0,
+                value=float(base_config.peak_tflops),
+                step=10.0,
+                key=f"hw_tflops_{config_idx}"
+            )
+            
+            edited_hbm_gbps = st.number_input(
+                "HBM GB/s",
+                min_value=100.0,
+                max_value=10000.0,
+                value=float(base_config.hbm_gbps),
+                step=50.0,
+                key=f"hw_hbm_{config_idx}"
+            )
+            
+            edited_cost = st.number_input(
+                "Cost $/hr (optional)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(base_config.cost_per_hour) if base_config.cost_per_hour else 0.0,
+                step=0.1,
+                key=f"hw_cost_{config_idx}"
+            )
+            
+            # Create the edited config
+            edited_config = HardwareConfig(
+                name=edited_name,
+                peak_tflops=edited_tflops,
+                hbm_gbps=edited_hbm_gbps,
+                sram_gb=base_config.sram_gb,
+                interconnect_gbps=base_config.interconnect_gbps,
+                cost_per_hour=edited_cost if edited_cost > 0 else None
+            )
+            edited_hw_configs.append(edited_config)
+    
+    st.divider()
+    
+    # Run Analysis button
+    if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
+        st.session_state.run_analysis = True
+    
+    # Show results if analysis has been run
+    if st.session_state.get("run_analysis", False):
+        # Run analysis for each config
+        analyses = []
+        for hw_config in edited_hw_configs:
+            analysis = analyze_detailed(workload, hw_config, assumptions, "decode")
+            analyses.append(analysis)
+        
+        # Log the run
+        log_run({
+            "workload": format_workload_for_log(workload),
+            "assumptions": format_assumptions_for_log(assumptions),
+            "hardware_configs": [format_hardware_for_log(hw) for hw in edited_hw_configs],
+            "results": [format_analysis_for_log(a) for a in analyses],
+        })
+        
+        st.divider()
+        st.markdown("### 📊 Comparison Results")
+        
+        # Build comparison table data
+        table_data = {
+            "Config": [],
+            "Peak TFLOP/s": [],
+            "HBM GB/s": [],
+            "Bottleneck": [],
+            "Throughput (tok/s)": [],
+            "Required TFLOP/s": [],
+            "Available TFLOP/s": [],
+            "Required GB/s": [],
+            "Available GB/s": [],
+        }
+        
+        for hw_config, analysis in zip(edited_hw_configs, analyses):
+            table_data["Config"].append(hw_config.name)
+            table_data["Peak TFLOP/s"].append(f"{hw_config.peak_tflops:.0f}")
+            table_data["HBM GB/s"].append(f"{hw_config.hbm_gbps:.0f}")
+            table_data["Bottleneck"].append(analysis["bottleneck_class"])
+            table_data["Throughput (tok/s)"].append(f"{analysis['tokens_s_final']:,.0f}")
+            table_data["Required TFLOP/s"].append(f"{analysis['required_tflops']:.1f}")
+            table_data["Available TFLOP/s"].append(f"{hw_config.peak_tflops * assumptions.compute_util:.1f}")
+            table_data["Required GB/s"].append(f"{analysis['required_gbps']:.1f}")
+            table_data["Available GB/s"].append(f"{hw_config.hbm_gbps * assumptions.bw_util:.1f}")
+        
+        # Display as dataframe
+        import pandas as pd
+        df = pd.DataFrame(table_data)
+        
+        # Style the dataframe
+        def highlight_bottleneck(val):
+            if val == "COMPUTE":
+                return "background-color: #ffcccb; color: black"
+            elif val == "MEMORY_BW":
+                return "background-color: #ffffcc; color: black"
+            return ""
+        
+        styled_df = df.style.applymap(
+            highlight_bottleneck, 
+            subset=["Bottleneck"]
+        )
+        
+        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        
+        # Find winner
+        throughputs = [a["tokens_s_final"] for a in analyses]
+        max_throughput = max(throughputs)
+        winner_idx = throughputs.index(max_throughput)
+        winner_config = edited_hw_configs[winner_idx]
+        
+        # Calculate speedups
+        speedup_msgs = []
+        for i, (hw, analysis) in enumerate(zip(edited_hw_configs, analyses)):
+            if i != winner_idx:
+                speedup = max_throughput / analysis["tokens_s_final"] if analysis["tokens_s_final"] > 0 else float('inf')
+                speedup_msgs.append(f"{speedup:.2f}x vs {hw.name}")
+        
+        st.success(f"🏆 **{winner_config.name}** is fastest: {format_number(max_throughput)} tok/s ({', '.join(speedup_msgs)})")
+        
+        # Detailed cards for each config
+        st.markdown("### 📋 Detailed Analysis")
+        
+        detail_cols = st.columns(num_configs)
+        for i, (col, hw_config, analysis) in enumerate(zip(detail_cols, edited_hw_configs, analyses)):
+            with col:
+                is_winner = (i == winner_idx)
+                header = f"{'🏆 ' if is_winner else ''}{hw_config.name}"
+                st.markdown(f"#### {header}")
+                
+                # Bottleneck badge
+                bn = analysis["bottleneck_class"]
+                if bn == "COMPUTE":
+                    st.error(f"💻 **{bn}**")
+                else:
+                    st.warning(f"💾 **{bn}**")
+                
+                st.metric(
+                    label="Throughput",
+                    value=f"{format_number(analysis['tokens_s_final'])} tok/s",
+                )
+                
+                with st.expander("Details"):
+                    st.markdown(f"""
+                    | Metric | Value |
+                    |--------|-------|
+                    | Compute-limited | {format_number(analysis['tokens_s_compute'])} tok/s |
+                    | BW-limited | {format_number(analysis['tokens_s_bw'])} tok/s |
+                    | Required TFLOP/s | {analysis['required_tflops']:.1f} |
+                    | Required GB/s | {analysis['required_gbps']:.1f} |
+                    | Compute Util | {analysis['compute_util_est']*100:.0f}% |
+                    | BW Util | {analysis['bw_util_est']*100:.0f}% |
+                    """)
+                
+                with st.expander("Top Levers"):
+                    # Compute sensitivity for this config
+                    levers = compute_sensitivity(workload, hw_config, assumptions, "decode")
+                    for idx, lever in enumerate(levers, 1):
+                        direction = "↑" if lever.high_throughput > lever.low_throughput else "↓"
+                        st.markdown(f"**{idx}. {lever.param_display_name}** ({lever.percent_impact:.1f}% impact {direction})")
+                        st.caption(lever.explanation)
+                
+                with st.expander("Explanation"):
+                    st.markdown(analysis["explanation"])
 
     st.divider()
 

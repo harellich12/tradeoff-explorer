@@ -214,6 +214,14 @@ Achieved throughput        = min(compute, memory)
 
 ---
 
+## Propmt Guardrails
+
+1. Do NOT add new features not listed.
+2. Keep changes minimal; prefer editing existing files.
+3. If you need a new dependency, justify it and keep it lightweight.
+
+---
+
 ## Usage
 
 ```bash
