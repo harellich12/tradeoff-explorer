@@ -1,0 +1,58 @@
+{
+    "presets": [
+        {
+            "name": "High-End Datacenter GPU",
+            "peak_tflops": 989.0,
+            "hbm_gbps": 3350.0,
+            "sram_gb": 0.050,
+            "interconnect_gbps": 900.0,
+            "cost_per_hour": 3.50,
+            "description": "Top-tier datacenter accelerator with HBM3"
+        },
+        {
+            "name": "Datacenter GPU",
+            "peak_tflops": 312.0,
+            "hbm_gbps": 2039.0,
+            "sram_gb": 0.040,
+            "interconnect_gbps": 600.0,
+            "cost_per_hour": 2.00,
+            "description": "Standard datacenter GPU with HBM2e"
+        },
+        {
+            "name": "Mid-Range Datacenter GPU",
+            "peak_tflops": 366.0,
+            "hbm_gbps": 864.0,
+            "sram_gb": 0.048,
+            "interconnect_gbps": null,
+            "cost_per_hour": 1.50,
+            "description": "Inference-optimized datacenter GPU"
+        },
+        {
+            "name": "Consumer High-End GPU",
+            "peak_tflops": 82.6,
+            "hbm_gbps": 1008.0,
+            "sram_gb": 0.072,
+            "interconnect_gbps": null,
+            "cost_per_hour": 0.50,
+            "description": "High-end consumer GPU with GDDR6X"
+        },
+        {
+            "name": "Cloud TPU",
+            "peak_tflops": 197.0,
+            "hbm_gbps": 1600.0,
+            "sram_gb": 0.016,
+            "interconnect_gbps": 400.0,
+            "cost_per_hour": 1.20,
+            "description": "Cloud tensor processing unit"
+        },
+        {
+            "name": "Generic Cloud GPU",
+            "peak_tflops": 150.0,
+            "hbm_gbps": 1000.0,
+            "sram_gb": 0.032,
+            "interconnect_gbps": null,
+            "cost_per_hour": 1.00,
+            "description": "Typical mid-range cloud GPU instance"
+        }
+    ]
+}
