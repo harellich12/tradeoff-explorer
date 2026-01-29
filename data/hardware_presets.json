@@ -235,6 +235,78 @@
             "notes": "FP16 peak; uses GDDR6 memory; has 96MB Infinity Cache"
         },
         {
+            "name": "DGX H100 (8×H100)",
+            "vendor": "NVIDIA",
+            "category": "System",
+            "peak_tflops": 7912.0,
+            "peak_tflops_int8": 15832.0,
+            "hbm_gbps": 26800.0,
+            "memory_gb": 640,
+            "sram_gb": 0.400,
+            "interconnect_gbps": 7200.0,
+            "cost_per_hour": 30.00,
+            "description": "NVIDIA DGX H100 with 8× H100 SXM GPUs",
+            "sources": [
+                "https://www.nvidia.com/en-us/data-center/dgx-h100/"
+            ],
+            "is_placeholder": false,
+            "notes": "8× H100 SXM (640GB total HBM3); NVLink 4.0 at 900GB/s per GPU. Aggregate specs = 8× single GPU."
+        },
+        {
+            "name": "DGX H200 (8×H200)",
+            "vendor": "NVIDIA",
+            "category": "System",
+            "peak_tflops": 7912.0,
+            "peak_tflops_int8": 15832.0,
+            "hbm_gbps": 38400.0,
+            "memory_gb": 1128,
+            "sram_gb": 0.400,
+            "interconnect_gbps": 7200.0,
+            "cost_per_hour": 40.00,
+            "description": "NVIDIA DGX H200 with 8× H200 SXM GPUs",
+            "sources": [
+                "https://www.nvidia.com/en-us/data-center/dgx-h200/"
+            ],
+            "is_placeholder": false,
+            "notes": "8× H200 SXM (1.1TB total HBM3e); NVLink 4.0 at 900GB/s per GPU. Aggregate specs = 8× single GPU."
+        },
+        {
+            "name": "Dell XE9680 (8×H100)",
+            "vendor": "Dell",
+            "category": "System",
+            "peak_tflops": 7912.0,
+            "peak_tflops_int8": 15832.0,
+            "hbm_gbps": 26800.0,
+            "memory_gb": 640,
+            "sram_gb": 0.400,
+            "interconnect_gbps": 7200.0,
+            "cost_per_hour": null,
+            "description": "Dell PowerEdge XE9680 with 8× H100 SXM GPUs",
+            "sources": [
+                "https://www.dell.com/en-us/shop/servers-storage-and-networking/poweredge-xe9680-server/spd/poweredge-xe9680/pe_xe9680_17227_vi_vp"
+            ],
+            "is_placeholder": false,
+            "notes": "Same GPU specs as DGX H100 (8× H100 SXM). Also available with 8× H200. Cost varies by configuration."
+        },
+        {
+            "name": "Dell XE9680 (8×H200)",
+            "vendor": "Dell",
+            "category": "System",
+            "peak_tflops": 7912.0,
+            "peak_tflops_int8": 15832.0,
+            "hbm_gbps": 38400.0,
+            "memory_gb": 1128,
+            "sram_gb": 0.400,
+            "interconnect_gbps": 7200.0,
+            "cost_per_hour": null,
+            "description": "Dell PowerEdge XE9680 with 8× H200 SXM GPUs",
+            "sources": [
+                "https://www.dell.com/en-us/shop/servers-storage-and-networking/poweredge-xe9680-server/spd/poweredge-xe9680/pe_xe9680_17227_vi_vp"
+            ],
+            "is_placeholder": false,
+            "notes": "Same GPU specs as DGX H200 (8× H200 SXM). 1.1TB total HBM3e memory."
+        },
+        {
             "name": "Generic Cloud GPU",
             "vendor": null,
             "category": "GPU",

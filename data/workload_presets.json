@@ -15,7 +15,8 @@
       "gqa": true,
       "description": "Meta Llama 3.1 8B with GQA (8 KV heads)",
       "sources": [
-        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md"
+        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md",
+        "https://huggingface.co/meta-llama/Llama-3.1-8B"
       ],
       "is_placeholder": false,
       "notes": "Uses Grouped Query Attention with 8 KV heads"
@@ -35,7 +36,8 @@
       "gqa": true,
       "description": "Meta Llama 3.1 70B with GQA (8 KV heads)",
       "sources": [
-        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md"
+        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md",
+        "https://huggingface.co/meta-llama/Llama-3.1-70B"
       ],
       "is_placeholder": false,
       "notes": "Uses Grouped Query Attention with 8 KV heads"
@@ -55,10 +57,11 @@
       "gqa": true,
       "description": "Meta Llama 3.1 405B with GQA (8 KV heads)",
       "sources": [
-        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md"
+        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md",
+        "https://huggingface.co/meta-llama/Llama-3.1-405B"
       ],
       "is_placeholder": false,
-      "notes": "Largest open-weight model; requires multi-GPU deployment"
+      "notes": "Largest open-weight dense model; requires multi-GPU deployment"
     },
     {
       "name": "Qwen2.5 7B",
@@ -75,7 +78,8 @@
       "gqa": true,
       "description": "Alibaba Qwen2.5 7B with GQA",
       "sources": [
-        "https://github.com/QwenLM/Qwen2.5"
+        "https://github.com/QwenLM/Qwen2.5",
+        "https://huggingface.co/Qwen/Qwen2.5-7B"
       ],
       "is_placeholder": false,
       "notes": "Uses Grouped Query Attention with 4 KV heads"
@@ -93,12 +97,33 @@
       "kv_dtype": "bf16",
       "kv_compression": 1.0,
       "gqa": true,
-      "description": "Alibaba Qwen2.5 72B with GQA",
+      "description": "Alibaba Qwen2.5 72B Instruct with GQA",
       "sources": [
-        "https://github.com/QwenLM/Qwen2.5"
+        "https://github.com/QwenLM/Qwen2.5",
+        "https://huggingface.co/Qwen/Qwen2.5-72B-Instruct"
       ],
       "is_placeholder": false,
       "notes": "Uses Grouped Query Attention with 8 KV heads"
+    },
+    {
+      "name": "Qwen3 235B (A22B MoE)",
+      "model_family": "Qwen",
+      "params_b": 235.0,
+      "n_layers": 94,
+      "hidden_size": 4096,
+      "n_heads": 64,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Alibaba Qwen3 235B MoE (22B active parameters)",
+      "sources": [
+        "https://huggingface.co/Qwen/Qwen3-235B-A22B"
+      ],
+      "is_placeholder": false,
+      "notes": "MoE model: 235B total params, 22B active per token; 128 experts with top-8 routing"
     },
     {
       "name": "DeepSeek-V2 Lite",
@@ -115,49 +140,70 @@
       "mqa": true,
       "description": "DeepSeek-V2 Lite with MLA (Multi-Head Latent Attention)",
       "sources": [
-        "https://arxiv.org/abs/2405.04434"
+        "https://arxiv.org/abs/2405.04434",
+        "https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite"
       ],
       "is_placeholder": false,
       "notes": "Uses Multi-Head Latent Attention for KV cache compression"
     },
     {
-      "name": "DeepSeek-V2",
+      "name": "DeepSeek-V3",
       "model_family": "DeepSeek",
-      "params_b": 236.0,
-      "n_layers": 60,
-      "hidden_size": 5120,
+      "params_b": 671.0,
+      "n_layers": 61,
+      "hidden_size": 7168,
       "n_heads": 128,
       "seq_len": 4096,
       "batch": 1,
       "weight_dtype": "bf16",
       "kv_dtype": "bf16",
       "kv_compression": 1.0,
-      "description": "DeepSeek-V2 236B MoE (21B active)",
+      "description": "DeepSeek-V3 671B MoE (37B active)",
       "sources": [
-        "https://arxiv.org/abs/2405.04434"
+        "https://arxiv.org/abs/2412.19437",
+        "https://huggingface.co/deepseek-ai/DeepSeek-V3"
       ],
       "is_placeholder": false,
-      "notes": "MoE model with 21B active params; dense calc here uses full 236B for weight reads"
+      "notes": "MoE: 671B total, 37B active per token; uses MLA for KV compression"
     },
     {
-      "name": "Yi-1.5 34B",
-      "model_family": "Yi",
-      "params_b": 34.0,
-      "n_layers": 60,
+      "name": "DeepSeek-R1",
+      "model_family": "DeepSeek",
+      "params_b": 671.0,
+      "n_layers": 61,
       "hidden_size": 7168,
-      "n_heads": 56,
+      "n_heads": 128,
       "seq_len": 4096,
       "batch": 1,
       "weight_dtype": "bf16",
       "kv_dtype": "bf16",
       "kv_compression": 1.0,
-      "gqa": true,
-      "description": "01.AI Yi-1.5 34B with GQA",
+      "description": "DeepSeek-R1 reasoning model (671B MoE)",
       "sources": [
-        "https://github.com/01-ai/Yi"
+        "https://arxiv.org/abs/2501.12948",
+        "https://huggingface.co/deepseek-ai/DeepSeek-R1"
       ],
       "is_placeholder": false,
-      "notes": "Uses Grouped Query Attention with 8 KV heads"
+      "notes": "Same architecture as DeepSeek-V3 (671B/37B active); optimized for reasoning"
+    },
+    {
+      "name": "Kimi K2 Thinking",
+      "model_family": "Moonshot",
+      "params_b": 1000.0,
+      "n_layers": null,
+      "hidden_size": null,
+      "n_heads": null,
+      "seq_len": 131072,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "description": "Moonshot Kimi K2 Thinking (1T MoE, 32B active)",
+      "sources": [
+        "https://huggingface.co/moonshotai/Kimi-K2-Instruct"
+      ],
+      "is_placeholder": true,
+      "notes": "1T MoE with 32B active params per token. Architecture details (n_layers/hidden_size) not fully public. Enter custom values for accurate analysis."
     },
     {
       "name": "Mistral 7B",
@@ -174,7 +220,8 @@
       "gqa": true,
       "description": "Mistral 7B v0.1 with sliding window attention",
       "sources": [
-        "https://mistral.ai/news/announcing-mistral-7b/"
+        "https://mistral.ai/news/announcing-mistral-7b/",
+        "https://huggingface.co/mistralai/Mistral-7B-v0.1"
       ],
       "is_placeholder": false,
       "notes": "Uses GQA with 8 KV heads; sliding window attention"
@@ -194,10 +241,94 @@
       "gqa": true,
       "description": "Mixtral 8x7B MoE (12.9B active)",
       "sources": [
-        "https://mistral.ai/news/mixtral-of-experts/"
+        "https://mistral.ai/news/mixtral-of-experts/",
+        "https://huggingface.co/mistralai/Mixtral-8x7B-v0.1"
       ],
       "is_placeholder": false,
       "notes": "MoE with 8 experts, 2 active per token; uses GQA"
+    },
+    {
+      "name": "Mixtral 8x22B",
+      "model_family": "Mistral",
+      "params_b": 176.0,
+      "n_layers": 56,
+      "hidden_size": 6144,
+      "n_heads": 48,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Mixtral 8x22B MoE (~39B active per token)",
+      "sources": [
+        "https://mistral.ai/news/mixtral-8x22b/",
+        "https://huggingface.co/mistralai/Mixtral-8x22B-v0.1"
+      ],
+      "is_placeholder": false,
+      "notes": "MoE with 8 experts, 2 active per token (39B active); uses GQA with 8 KV heads"
+    },
+    {
+      "name": "Gemma 2 27B",
+      "model_family": "Gemma",
+      "params_b": 27.2,
+      "n_layers": 46,
+      "hidden_size": 4608,
+      "n_heads": 32,
+      "seq_len": 8192,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Google Gemma 2 27B with GQA",
+      "sources": [
+        "https://huggingface.co/google/gemma-2-27b",
+        "https://ai.google.dev/gemma/docs"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses GQA with 16 KV heads; sliding window + global attention"
+    },
+    {
+      "name": "GLM-4 9B",
+      "model_family": "GLM",
+      "params_b": 9.4,
+      "n_layers": 40,
+      "hidden_size": 4096,
+      "n_heads": 32,
+      "seq_len": 8192,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Zhipu GLM-4 9B Chat with GQA",
+      "sources": [
+        "https://huggingface.co/THUDM/glm-4-9b-chat-hf"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses GQA with 2 KV heads (MQA-like); 128k context capable"
+    },
+    {
+      "name": "Yi-1.5 34B",
+      "model_family": "Yi",
+      "params_b": 34.0,
+      "n_layers": 60,
+      "hidden_size": 7168,
+      "n_heads": 56,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "01.AI Yi-1.5 34B with GQA",
+      "sources": [
+        "https://github.com/01-ai/Yi",
+        "https://huggingface.co/01-ai/Yi-1.5-34B"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses Grouped Query Attention with 8 KV heads"
     },
     {
       "name": "Claude 3.5 Sonnet (Archetype)",
