@@ -17,7 +17,7 @@ from model.workloads import (
     get_flops_formula_markdown,
     get_bytes_formula_markdown,
 )
-from model.presets import load_workload_presets, load_hardware_presets
+from model.presets import load_workload_presets, load_hardware_presets, load_hardware_presets_with_meta, load_workload_presets_with_meta
 from model.roofline import analyze_detailed
 from model.sensitivity import compute_sensitivity
 from model.logging import (
@@ -27,6 +27,18 @@ from model.logging import (
     format_assumptions_for_log,
     format_analysis_for_log,
 )
+from model.memory_fit import memory_fit_status, format_memory_fit_for_log
+
+
+# App version
+APP_VERSION = "0.7.0"
+
+# Default assumption values for reset
+DEFAULT_COMPUTE_UTIL = 0.7
+DEFAULT_BW_UTIL = 0.8
+DEFAULT_OVERLAP_FACTOR = 0.0
+DEFAULT_WEIGHT_CACHE_HIT_RATE = 0.0
+DEFAULT_OVERHEAD_FRACTION = 0.15
 
 
 def format_number(value: float, precision: int = 2) -> str:
@@ -64,11 +76,38 @@ def create_default_workload() -> WorkloadConfig:
 def create_default_assumptions() -> Assumptions:
     """Create default assumptions."""
     return Assumptions(
-        compute_util=0.7,
-        bw_util=0.8,
-        overlap_factor=0.0,
-        weight_cache_hit_rate=0.0,
+        compute_util=DEFAULT_COMPUTE_UTIL,
+        bw_util=DEFAULT_BW_UTIL,
+        overlap_factor=DEFAULT_OVERLAP_FACTOR,
+        weight_cache_hit_rate=DEFAULT_WEIGHT_CACHE_HIT_RATE,
     )
+
+
+def check_extrapolation_warnings(workload: WorkloadConfig, assumptions: Assumptions) -> list:
+    """Check for extreme values that may cause extrapolation issues."""
+    warnings = []
+    
+    # Check utilization factors
+    if assumptions.compute_util < 0.3:
+        warnings.append(f"⚠️ **Very low compute utilization ({assumptions.compute_util*100:.0f}%)** — Real systems rarely see <30% utilization")
+    if assumptions.bw_util < 0.4:
+        warnings.append(f"⚠️ **Very low bandwidth utilization ({assumptions.bw_util*100:.0f}%)** — May indicate suboptimal memory access patterns")
+    
+    # Check extreme sequence lengths
+    if workload.seq_len >= 16384:
+        warnings.append(f"⚠️ **Very long sequence ({workload.seq_len:,} tokens)** — KV cache may exceed GPU memory; consider chunked attention")
+    if workload.seq_len < 256:
+        warnings.append(f"⚠️ **Very short sequence ({workload.seq_len} tokens)** — May not reflect typical LLM usage patterns")
+    
+    # Check extreme batch sizes
+    if workload.batch >= 32:
+        warnings.append(f"⚠️ **Large batch size ({workload.batch})** — Memory constraints may limit actual batch size")
+    
+    # Check model size vs typical ranges
+    if workload.params_b > 70:
+        warnings.append(f"⚠️ **Very large model ({workload.params_b}B params)** — May require multi-GPU deployment")
+    
+    return warnings
 
 
 def main():
@@ -82,64 +121,74 @@ def main():
 
     # Title and description
     st.title("⚖️ LLM Hardware-Model Tradeoff Explorer")
-    st.markdown(
-        """
-        Analyze and visualize the performance tradeoffs between LLM workloads
-        and hardware configurations using roofline modeling.
-        """
+    st.caption(
+        "Analyze performance tradeoffs between LLM workloads and hardware using roofline modeling. "
+        "All results are **upper-bound estimates under assumptions**."
     )
-
-    st.divider()
 
     # Load presets once
     workload_presets = load_workload_presets()
     hardware_presets = load_hardware_presets()
+    hardware_presets_meta = load_hardware_presets_with_meta()
     
-    # Build preset name lists with "Custom" option
+    # Build preset name lists
     workload_names = ["Custom"] + [p.name for p in workload_presets]
     hardware_names = [p.name for p in hardware_presets]
+    
+    # Build hardware metadata lookup
+    hw_meta_lookup = {m.config.name: m for m in hardware_presets_meta if m.config}
 
-    # Sidebar configuration
+    # =========================================================================
+    # Sidebar Configuration
+    # =========================================================================
     with st.sidebar:
         st.header("⚙️ Workload Configuration")
         
         # Workload preset selector
         selected_workload = st.selectbox(
-            "📦 Workload Preset",
+            "📦 Model Preset",
             options=workload_names,
-            index=1,  # Default to first real preset
-            help="Select a preset to auto-fill parameters, or 'Custom' to enter manually"
+            index=1,
+            help="Select a preset to auto-fill model architecture, or 'Custom' for manual entry"
         )
         
-        # Get preset values if not custom
+        # Get preset values
         if selected_workload == "Custom":
             preset = create_default_workload()
         else:
             preset = next((p for p in workload_presets if p.name == selected_workload), create_default_workload())
         
+        # Reset to preset defaults button
+        if selected_workload != "Custom":
+            if st.button("🔄 Reset to Preset Defaults", use_container_width=True):
+                st.session_state.clear()
+                st.rerun()
+        
         st.divider()
         
-        # Model parameters - use preset values as defaults
+        # Model Architecture section
+        st.subheader("🏗️ Model Architecture")
+        
         params_b = st.slider(
-            "Model Size (B params)", 
+            "Parameters (billions)", 
             1.0, 100.0, 
             float(preset.params_b), 
             0.5,
-            disabled=(selected_workload != "Custom")
+            disabled=(selected_workload != "Custom"),
+            help="Total model parameters in billions"
         )
         n_layers = st.slider(
-            "Layers", 
+            "Transformer Layers", 
             4, 128, 
             int(preset.n_layers), 
             2,
             disabled=(selected_workload != "Custom")
         )
         
-        # For select_slider, we need to handle preset values
         hidden_options = [1024, 2048, 4096, 5120, 6144, 8192, 12288, 16384]
         hidden_idx = hidden_options.index(preset.hidden_size) if preset.hidden_size in hidden_options else 2
         hidden_size = st.select_slider(
-            "Hidden Size",
+            "Hidden Dimension",
             options=hidden_options,
             value=hidden_options[hidden_idx],
             disabled=(selected_workload != "Custom")
@@ -156,44 +205,99 @@ def main():
         
         st.divider()
         
-        seq_options = [512, 1024, 2048, 4096, 8192, 16384, 32768]
-        seq_idx = seq_options.index(preset.seq_len) if preset.seq_len in seq_options else 2
+        # Inference Settings section
+        st.subheader("📊 Inference Settings")
+        
+        seq_options = [256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+        seq_idx = seq_options.index(preset.seq_len) if preset.seq_len in seq_options else 3
         seq_len = st.select_slider(
-            "Sequence Length",
+            "Context Length (tokens)",
             options=seq_options,
-            value=seq_options[seq_idx]
+            value=seq_options[seq_idx],
+            help="Sequence length for KV cache sizing"
         )
-        batch = st.slider("Batch Size", 1, 64, int(preset.batch))
+        batch = st.slider(
+            "Batch Size", 
+            1, 64, 
+            int(preset.batch),
+            help="Number of concurrent sequences"
+        )
         
         st.divider()
-        st.subheader("Data Types")
+        
+        # Precision Settings section
+        st.subheader("🎯 Precision Settings")
         
         dtype_options = ["bf16", "fp16", "int8", "int4"]
         weight_dtype = st.selectbox(
-            "Weight Dtype",
+            "Weight Precision",
             options=dtype_options,
-            index=dtype_options.index(preset.weight_dtype) if preset.weight_dtype in dtype_options else 0
+            index=dtype_options.index(preset.weight_dtype) if preset.weight_dtype in dtype_options else 0,
+            help="Data type for model weights"
         )
         kv_dtype = st.selectbox(
-            "KV Cache Dtype",
+            "KV Cache Precision",
             options=dtype_options,
-            index=dtype_options.index(preset.kv_dtype) if preset.kv_dtype in dtype_options else 0
+            index=dtype_options.index(preset.kv_dtype) if preset.kv_dtype in dtype_options else 0,
+            help="Data type for key-value cache"
         )
-        kv_compression = st.slider("KV Compression", 0.1, 1.0, float(preset.kv_compression), 0.05)
+        kv_compression = st.slider(
+            "KV Compression Factor", 
+            0.1, 1.0, 
+            float(preset.kv_compression), 
+            0.05,
+            help="1.0 = no compression, lower = more aggressive compression"
+        )
         
         st.divider()
-        st.subheader("Assumptions")
         
-        compute_util = st.slider("Compute Utilization", 0.1, 1.0, 0.7, 0.05)
-        bw_util = st.slider("Bandwidth Utilization", 0.1, 1.0, 0.8, 0.05)
-        overlap_factor = st.slider("Overlap Factor", 0.0, 0.5, 0.0, 0.05,
-            help="How much compute and memory operations can overlap (0=none, higher=more overlap benefit)")
-        weight_cache_hit_rate = st.slider("Weight Cache Hit Rate", 0.0, 1.0, 0.0, 0.05)
+        # Assumptions section with expander
+        with st.expander("🔧 Efficiency Assumptions", expanded=False):
+            st.caption("Adjust these to model real-world inefficiencies")
+            
+            compute_util = st.slider(
+                "Compute Utilization", 
+                0.1, 1.0, 
+                DEFAULT_COMPUTE_UTIL, 
+                0.05,
+                help="Fraction of peak FLOP/s actually achieved (typical: 60-80%)"
+            )
+            bw_util = st.slider(
+                "Bandwidth Utilization", 
+                0.1, 1.0, 
+                DEFAULT_BW_UTIL, 
+                0.05,
+                help="Fraction of peak memory bandwidth achieved (typical: 70-90%)"
+            )
+            overlap_factor = st.slider(
+                "Compute-Memory Overlap", 
+                0.0, 0.5, 
+                DEFAULT_OVERLAP_FACTOR, 
+                0.05,
+                help="Degree of overlap between compute and memory ops (0 = none)"
+            )
+            weight_cache_hit_rate = st.slider(
+                "Weight Cache Hit Rate", 
+                0.0, 1.0, 
+                DEFAULT_WEIGHT_CACHE_HIT_RATE, 
+                0.05,
+                help="Fraction of weights cached in faster memory (e.g., SRAM)"
+            )
+            overhead_fraction = st.slider(
+                "Memory Overhead %",
+                0.05, 0.50,
+                DEFAULT_OVERHEAD_FRACTION,
+                0.05,
+                format="%.0f%%",
+                help="Additional memory overhead for activations, framework, etc."
+            )
         
         st.divider()
-        st.caption("v0.5.0")
+        st.caption(f"v{APP_VERSION}")
 
-    # Build workload config using preset values when not custom
+    # =========================================================================
+    # Build Configuration Objects
+    # =========================================================================
     try:
         if selected_workload == "Custom":
             workload = WorkloadConfig(
@@ -209,7 +313,6 @@ def main():
                 kv_compression=kv_compression,
             )
         else:
-            # Use preset but allow seq_len and batch overrides
             workload = WorkloadConfig(
                 name=preset.name,
                 params_b=preset.params_b,
@@ -235,7 +338,18 @@ def main():
         assumptions = create_default_assumptions()
         config_valid = False
 
-    # Main content
+    # =========================================================================
+    # Check for Extrapolation Warnings
+    # =========================================================================
+    extrapolation_warnings = check_extrapolation_warnings(workload, assumptions)
+    if extrapolation_warnings:
+        with st.expander("⚠️ Extrapolation Warnings", expanded=True):
+            for warning in extrapolation_warnings:
+                st.markdown(warning)
+
+    # =========================================================================
+    # Workload Summary Panel
+    # =========================================================================
     col1, col2 = st.columns(2)
 
     with col1:
@@ -243,39 +357,40 @@ def main():
         
         if config_valid:
             st.markdown(f"""
-            | Parameter | Value |
-            |-----------|-------|
-            | **Model** | {workload.params_b}B params |
-            | **Architecture** | {workload.n_layers}L × {workload.hidden_size}d × {workload.n_heads}h |
-            | **Sequence** | {workload.seq_len:,} tokens |
-            | **Batch** | {workload.batch} |
-            | **Weight dtype** | {workload.weight_dtype} ({get_dtype_bytes(workload.weight_dtype)} bytes) |
-            | **KV dtype** | {workload.kv_dtype} ({workload.kv_bytes_per_element():.1f} bytes) |
+| Parameter | Value |
+|-----------|-------|
+| **Model** | {workload.params_b}B parameters |
+| **Architecture** | {workload.n_layers}L × {workload.hidden_size}d × {workload.n_heads}h |
+| **Context** | {workload.seq_len:,} tokens |
+| **Batch** | {workload.batch} sequences |
+| **Weights** | {workload.weight_dtype.upper()} ({get_dtype_bytes(workload.weight_dtype)} bytes) |
+| **KV Cache** | {workload.kv_dtype.upper()} ({workload.kv_bytes_per_element():.1f} bytes) |
             """)
         else:
             st.warning("Invalid configuration. Using defaults.")
 
     with col2:
-        st.subheader("📐 Assumptions")
-        st.markdown(f"""
-        | Assumption | Value |
-        |------------|-------|
-        | **Weight Cache Hit** | {assumptions.weight_cache_hit_rate*100:.0f}% |
-        | **KV Compression** | {workload.kv_compression*100:.0f}% |
-        | **Compute Util** | {assumptions.compute_util*100:.0f}% |
-        | **Bandwidth Util** | {assumptions.bw_util*100:.0f}% |
-        """)
+        with st.expander("📐 Current Assumptions", expanded=True):
+            st.markdown(f"""
+| Assumption | Value | Notes |
+|------------|-------|-------|
+| **Compute Util** | {assumptions.compute_util*100:.0f}% | Fraction of peak FLOP/s |
+| **Bandwidth Util** | {assumptions.bw_util*100:.0f}% | Fraction of peak GB/s |
+| **KV Compression** | {workload.kv_compression*100:.0f}% | Compression factor |
+| **Weight Cache** | {assumptions.weight_cache_hit_rate*100:.0f}% | SRAM cache hits |
+            """)
 
     st.divider()
 
-    # Compute metrics
+    # =========================================================================
+    # Per-Token Metrics
+    # =========================================================================
     prefill_flops = flops_per_token(workload, "prefill")
     prefill_bytes = bytes_per_token_prefill(workload, assumptions)
     decode_flops = flops_per_token(workload, "decode")
     decode_bytes = bytes_per_token(workload, assumptions)
 
-    # Results section
-    st.subheader("📈 Per-Token Metrics")
+    st.subheader("📈 Per-Token Compute & Memory")
 
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
@@ -284,32 +399,30 @@ def main():
             label="Prefill FLOPs/token",
             value=f"{format_number(prefill_flops)}",
         )
-        st.caption("Compute per token (prefill)")
+        st.caption("Compute per token")
 
     with metric_col2:
         st.metric(
             label="Prefill Bytes/token",
             value=f"{format_number(prefill_bytes)}B",
         )
-        st.caption("Memory per token (prefill)")
+        st.caption("Memory per token")
 
     with metric_col3:
         st.metric(
             label="Decode FLOPs/token",
             value=f"{format_number(decode_flops)}",
         )
-        st.caption("Compute per token (decode)")
+        st.caption("Compute per token")
 
     with metric_col4:
         st.metric(
             label="Decode Bytes/token",
             value=f"{format_number(decode_bytes)}B",
         )
-        st.caption("Memory per token (decode)")
+        st.caption("Memory per token")
 
     # Arithmetic intensity
-    st.divider()
-    
     ai_col1, ai_col2 = st.columns(2)
     
     with ai_col1:
@@ -331,85 +444,122 @@ def main():
     st.divider()
 
     # =========================================================================
-    # Hardware Comparison Section (2-4 configs)
+    # Hardware Comparison Section
     # =========================================================================
     st.subheader("🖥️ Hardware Comparison")
     
-    # Select number of configs to compare
     num_configs = st.slider(
-        "Number of configurations to compare",
+        "Number of hardware configurations",
         min_value=2,
         max_value=4,
         value=2,
-        key="num_hw_configs"
+        key="num_hw_configs",
+        help="Compare 2-4 hardware configurations side by side"
     )
     
-    # Initialize session state for hardware configs if needed
-    if "hw_configs" not in st.session_state:
-        st.session_state.hw_configs = {}
-    
-    # Create columns for hardware config selection and editing
+    # Create columns for hardware config selection
     hw_columns = st.columns(num_configs)
-    
-    # Store edited hardware configs
     edited_hw_configs = []
+    
+    # Callback to update input fields when preset changes
+    def make_hw_preset_callback(idx, presets, preset_names):
+        def callback():
+            selected = st.session_state[f"hw_preset_{idx}"]
+            config = next((p for p in presets if p.name == selected), presets[0])
+            st.session_state[f"hw_name_{idx}"] = config.name
+            st.session_state[f"hw_tflops_{idx}"] = float(config.peak_tflops)
+            st.session_state[f"hw_hbm_{idx}"] = float(config.hbm_gbps)
+            st.session_state[f"hw_memory_{idx}"] = float(config.memory_gb) if config.memory_gb else 0.0
+            st.session_state[f"hw_cost_{idx}"] = float(config.cost_per_hour) if config.cost_per_hour else 0.0
+        return callback
     
     for i, col in enumerate(hw_columns):
         config_idx = i + 1
         with col:
-            st.markdown(f"#### Config #{config_idx}")
+            st.markdown(f"#### Hardware #{config_idx}")
             
-            # Preset selector
             default_idx = min(i, len(hardware_names) - 1)
+            
+            # Initialize session state for this config if needed
+            init_key = f"hw_init_{config_idx}"
+            if init_key not in st.session_state:
+                init_config = hardware_presets[default_idx] if default_idx < len(hardware_presets) else hardware_presets[0]
+                st.session_state[f"hw_preset_{config_idx}"] = init_config.name
+                st.session_state[f"hw_name_{config_idx}"] = init_config.name
+                st.session_state[f"hw_tflops_{config_idx}"] = float(init_config.peak_tflops)
+                st.session_state[f"hw_hbm_{config_idx}"] = float(init_config.hbm_gbps)
+                st.session_state[f"hw_memory_{config_idx}"] = float(init_config.memory_gb) if init_config.memory_gb else 0.0
+                st.session_state[f"hw_cost_{config_idx}"] = float(init_config.cost_per_hour) if init_config.cost_per_hour else 0.0
+                st.session_state[init_key] = True
+            
             selected_preset = st.selectbox(
                 f"Preset",
                 options=hardware_names,
-                index=default_idx,
-                key=f"hw_preset_{config_idx}"
+                key=f"hw_preset_{config_idx}",
+                label_visibility="collapsed",
+                on_change=make_hw_preset_callback(config_idx, hardware_presets, hardware_names)
             )
             
-            # Get the preset as baseline
-            base_config = next((p for p in hardware_presets if p.name == selected_preset), hardware_presets[0])
+            # Display vendor/memory info from metadata
+            hw_meta = hw_meta_lookup.get(selected_preset)
+            if hw_meta:
+                info_parts = []
+                if hw_meta.vendor:
+                    info_parts.append(hw_meta.vendor)
+                if hw_meta.category:
+                    info_parts.append(hw_meta.category)
+                if hw_meta.memory_gb:
+                    info_parts.append(f"{hw_meta.memory_gb:.0f}GB")
+                if info_parts:
+                    st.caption(" · ".join(info_parts))
             
-            # Editable fields
             edited_name = st.text_input(
                 "Name",
-                value=base_config.name,
-                key=f"hw_name_{config_idx}"
+                key=f"hw_name_{config_idx}",
+                label_visibility="collapsed"
             )
             
             edited_tflops = st.number_input(
-                "Peak TFLOP/s",
+                "Peak TFLOP/s (BF16)",
                 min_value=1.0,
                 max_value=10000.0,
-                value=float(base_config.peak_tflops),
                 step=10.0,
                 key=f"hw_tflops_{config_idx}"
             )
             
             edited_hbm_gbps = st.number_input(
-                "HBM GB/s",
+                "Memory Bandwidth (GB/s)",
                 min_value=100.0,
                 max_value=10000.0,
-                value=float(base_config.hbm_gbps),
                 step=50.0,
                 key=f"hw_hbm_{config_idx}"
             )
             
+            edited_memory_gb = st.number_input(
+                "Memory (GB)",
+                min_value=0.0,
+                max_value=1000.0,
+                step=1.0,
+                key=f"hw_memory_{config_idx}",
+                help="Total device memory for memory fit check (0 = unknown)"
+            )
+            
             edited_cost = st.number_input(
-                "Cost $/hr (optional)",
+                "Cost ($/hour)",
                 min_value=0.0,
                 max_value=100.0,
-                value=float(base_config.cost_per_hour) if base_config.cost_per_hour else 0.0,
                 step=0.1,
                 key=f"hw_cost_{config_idx}"
             )
             
-            # Create the edited config
+            # Get base config for sram and interconnect
+            base_config = next((p for p in hardware_presets if p.name == selected_preset), hardware_presets[0])
+            
             edited_config = HardwareConfig(
                 name=edited_name,
                 peak_tflops=edited_tflops,
                 hbm_gbps=edited_hbm_gbps,
+                memory_gb=edited_memory_gb if edited_memory_gb > 0 else None,
                 sram_gb=base_config.sram_gb,
                 interconnect_gbps=base_config.interconnect_gbps,
                 cost_per_hour=edited_cost if edited_cost > 0 else None
@@ -424,26 +574,30 @@ def main():
     
     # Show results if analysis has been run
     if st.session_state.get("run_analysis", False):
-        # Run analysis for each config
         analyses = []
         for hw_config in edited_hw_configs:
             analysis = analyze_detailed(workload, hw_config, assumptions, "decode")
             analyses.append(analysis)
         
+        # Compute memory fit results for logging
+        memory_fits = [memory_fit_status(workload, hw, overhead_fraction) for hw in edited_hw_configs]
+        
         # Log the run
         log_run({
             "workload": format_workload_for_log(workload),
             "assumptions": format_assumptions_for_log(assumptions),
+            "overhead_fraction": overhead_fraction,
             "hardware_configs": [format_hardware_for_log(hw) for hw in edited_hw_configs],
             "results": [format_analysis_for_log(a) for a in analyses],
+            "memory_fits": [format_memory_fit_for_log(mf) for mf in memory_fits],
         })
         
         st.divider()
         st.markdown("### 📊 Comparison Results")
         
-        # Build comparison table data
+        # Build comparison table
         table_data = {
-            "Config": [],
+            "Configuration": [],
             "Peak TFLOP/s": [],
             "HBM GB/s": [],
             "Bottleneck": [],
@@ -455,7 +609,7 @@ def main():
         }
         
         for hw_config, analysis in zip(edited_hw_configs, analyses):
-            table_data["Config"].append(hw_config.name)
+            table_data["Configuration"].append(hw_config.name)
             table_data["Peak TFLOP/s"].append(f"{hw_config.peak_tflops:.0f}")
             table_data["HBM GB/s"].append(f"{hw_config.hbm_gbps:.0f}")
             table_data["Bottleneck"].append(analysis["bottleneck_class"])
@@ -465,11 +619,9 @@ def main():
             table_data["Required GB/s"].append(f"{analysis['required_gbps']:.1f}")
             table_data["Available GB/s"].append(f"{hw_config.hbm_gbps * assumptions.bw_util:.1f}")
         
-        # Display as dataframe
         import pandas as pd
         df = pd.DataFrame(table_data)
         
-        # Style the dataframe
         def highlight_bottleneck(val):
             if val == "COMPUTE":
                 return "background-color: #ffcccb; color: black"
@@ -477,11 +629,7 @@ def main():
                 return "background-color: #ffffcc; color: black"
             return ""
         
-        styled_df = df.style.applymap(
-            highlight_bottleneck, 
-            subset=["Bottleneck"]
-        )
-        
+        styled_df = df.style.applymap(highlight_bottleneck, subset=["Bottleneck"])
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
         
         # Find winner
@@ -490,16 +638,15 @@ def main():
         winner_idx = throughputs.index(max_throughput)
         winner_config = edited_hw_configs[winner_idx]
         
-        # Calculate speedups
         speedup_msgs = []
         for i, (hw, analysis) in enumerate(zip(edited_hw_configs, analyses)):
             if i != winner_idx:
                 speedup = max_throughput / analysis["tokens_s_final"] if analysis["tokens_s_final"] > 0 else float('inf')
-                speedup_msgs.append(f"{speedup:.2f}x vs {hw.name}")
+                speedup_msgs.append(f"{speedup:.2f}× vs {hw.name}")
         
-        st.success(f"🏆 **{winner_config.name}** is fastest: {format_number(max_throughput)} tok/s ({', '.join(speedup_msgs)})")
+        st.success(f"🏆 **{winner_config.name}** achieves highest throughput: **{format_number(max_throughput)} tok/s** ({', '.join(speedup_msgs)})")
         
-        # Detailed cards for each config
+        # Detailed cards
         st.markdown("### 📋 Detailed Analysis")
         
         detail_cols = st.columns(num_configs)
@@ -509,7 +656,6 @@ def main():
                 header = f"{'🏆 ' if is_winner else ''}{hw_config.name}"
                 st.markdown(f"#### {header}")
                 
-                # Bottleneck badge
                 bn = analysis["bottleneck_class"]
                 if bn == "COMPUTE":
                     st.error(f"💻 **{bn}**")
@@ -521,54 +667,99 @@ def main():
                     value=f"{format_number(analysis['tokens_s_final'])} tok/s",
                 )
                 
-                with st.expander("Details"):
+                with st.expander("📊 Metrics"):
                     st.markdown(f"""
-                    | Metric | Value |
-                    |--------|-------|
-                    | Compute-limited | {format_number(analysis['tokens_s_compute'])} tok/s |
-                    | BW-limited | {format_number(analysis['tokens_s_bw'])} tok/s |
-                    | Required TFLOP/s | {analysis['required_tflops']:.1f} |
-                    | Required GB/s | {analysis['required_gbps']:.1f} |
-                    | Compute Util | {analysis['compute_util_est']*100:.0f}% |
-                    | BW Util | {analysis['bw_util_est']*100:.0f}% |
+| Metric | Value |
+|--------|-------|
+| Compute-limited | {format_number(analysis['tokens_s_compute'])} tok/s |
+| BW-limited | {format_number(analysis['tokens_s_bw'])} tok/s |
+| Required TFLOP/s | {analysis['required_tflops']:.1f} |
+| Required GB/s | {analysis['required_gbps']:.1f} |
+| Compute Util | {analysis['compute_util_est']*100:.0f}% |
+| BW Util | {analysis['bw_util_est']*100:.0f}% |
                     """)
                 
-                with st.expander("Top Levers"):
-                    # Compute sensitivity for this config
+                # Memory Fit section
+                fit_result = memory_fit_status(workload, hw_config, overhead_fraction)
+                with st.expander("💾 Memory Fit", expanded=fit_result["status"] in ["WARNING", "ERROR"]):
+                    status = fit_result["status"]
+                    if status == "OK":
+                        st.success(f"✅ **{status}** — {fit_result['rationale']}")
+                    elif status == "WARNING":
+                        st.warning(f"⚡ **{status}** — {fit_result['rationale']}")
+                    elif status == "ERROR":
+                        st.error(f"⚠️ **{status}** — {fit_result['rationale']}")
+                    else:
+                        st.info(f"❓ **{status}** — {fit_result['rationale']}")
+                    
+                    st.markdown(f"""
+| Component | Size |
+|-----------|------|
+| Weights | {fit_result['weights_gb']:.2f} GB |
+| KV Cache | {fit_result['kv_gb']:.2f} GB |
+| Overhead | {overhead_fraction*100:.0f}% |
+| **Total Required** | **{fit_result['required_gb']:.2f} GB** |
+                    """)
+                    
+                    if fit_result["memory_gb"]:
+                        st.markdown(f"**Available:** {fit_result['memory_gb']:.0f} GB • **Headroom:** {fit_result['headroom_gb']:.2f} GB")
+                    
+                    if status in ["WARNING", "ERROR"]:
+                        st.caption("💡 **OOM levers:** reduce `seq_len`, reduce `batch`, or quantize/compress KV cache.")
+                
+                with st.expander("🎯 Top Levers"):
                     levers = compute_sensitivity(workload, hw_config, assumptions, "decode")
                     for idx, lever in enumerate(levers, 1):
                         direction = "↑" if lever.high_throughput > lever.low_throughput else "↓"
-                        st.markdown(f"**{idx}. {lever.param_display_name}** ({lever.percent_impact:.1f}% impact {direction})")
+                        st.markdown(f"**{idx}. {lever.param_display_name}** ({lever.percent_impact:.1f}% {direction})")
                         st.caption(lever.explanation)
                 
-                with st.expander("Explanation"):
+                with st.expander("📝 Explanation"):
                     st.markdown(analysis["explanation"])
 
     st.divider()
 
-    # Formula explanations
-    tab1, tab2, tab3 = st.tabs(["Formula Details", "Sensitivity Analysis", "Memo Export"])
+    # =========================================================================
+    # Formula and Documentation Tabs
+    # =========================================================================
+    tab1, tab2, tab3 = st.tabs(["📐 Formula Details", "📈 Sensitivity Analysis", "📄 Memo Export"])
 
     with tab1:
         formula_col1, formula_col2 = st.columns(2)
         
         with formula_col1:
-            with st.expander("FLOPs Formula (Decode)", expanded=True):
+            with st.expander("FLOPs Formula (Decode)", expanded=False):
                 st.markdown(get_flops_formula_markdown("decode"))
         
         with formula_col2:
-            with st.expander("Bytes Formula (Decode)", expanded=True):
+            with st.expander("Bytes Formula (Decode)", expanded=False):
                 st.markdown(get_bytes_formula_markdown("decode"))
+        
+        with st.expander("🔍 Understanding the Roofline Model", expanded=False):
+            st.markdown("""
+**The Roofline Model** provides an upper bound on achievable performance:
+
+1. **Compute-Bound**: When arithmetic intensity is high, performance is limited by peak FLOP/s
+2. **Memory-Bound**: When arithmetic intensity is low, performance is limited by memory bandwidth
+
+The model computes:
+- `tokens/s_compute = (peak_TFLOP/s × compute_util) / FLOP_per_token`
+- `tokens/s_bw = (HBM_GB/s × bw_util) / bytes_per_token`
+- `tokens/s_final = min(compute, bw) × (1 + overlap_factor)`
+
+**Limitations**: This is a simplified model. Real performance depends on many factors not captured here, including kernel efficiency, memory access patterns, and system-level effects.
+            """)
 
     with tab2:
         st.info(
-            "**Sensitivity Analysis:** Tornado charts showing parameter "
-            "impact on throughput. (Coming soon)"
+            "💡 **Sensitivity Analysis** shows which parameters have the most impact on throughput. "
+            "See the **Top Levers** section in each hardware config's detailed analysis above."
         )
 
     with tab3:
         st.info(
-            "**Memo Export:** Generate an HTML summary report of the analysis. (Coming soon)"
+            "📄 **Memo Export** generates an HTML summary of your analysis. "
+            "This feature is coming soon."
         )
 
 

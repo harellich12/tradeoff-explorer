@@ -1,58 +1,253 @@
 {
     "presets": [
         {
-            "name": "High-End Datacenter GPU",
+            "name": "NVIDIA H100 SXM",
+            "vendor": "NVIDIA",
+            "category": "GPU",
             "peak_tflops": 989.0,
+            "peak_tflops_int8": 1979.0,
             "hbm_gbps": 3350.0,
+            "memory_gb": 80,
             "sram_gb": 0.050,
             "interconnect_gbps": 900.0,
             "cost_per_hour": 3.50,
-            "description": "Top-tier datacenter accelerator with HBM3"
+            "description": "NVIDIA H100 SXM with 80GB HBM3",
+            "sources": [
+                "https://www.nvidia.com/en-us/data-center/h100/"
+            ],
+            "is_placeholder": false,
+            "notes": "BF16 Tensor Core peak; actual throughput varies with workload"
         },
         {
-            "name": "Datacenter GPU",
+            "name": "NVIDIA H200 SXM",
+            "vendor": "NVIDIA",
+            "category": "GPU",
+            "peak_tflops": 989.0,
+            "peak_tflops_int8": 1979.0,
+            "hbm_gbps": 4800.0,
+            "memory_gb": 141,
+            "sram_gb": 0.050,
+            "interconnect_gbps": 900.0,
+            "cost_per_hour": 4.50,
+            "description": "NVIDIA H200 SXM with 141GB HBM3e",
+            "sources": [
+                "https://www.nvidia.com/en-us/data-center/h200/"
+            ],
+            "is_placeholder": false,
+            "notes": "Same compute as H100, 1.4x more memory and 1.4x more bandwidth"
+        },
+        {
+            "name": "NVIDIA A100 SXM 80GB",
+            "vendor": "NVIDIA",
+            "category": "GPU",
             "peak_tflops": 312.0,
+            "peak_tflops_int8": 624.0,
             "hbm_gbps": 2039.0,
+            "memory_gb": 80,
             "sram_gb": 0.040,
             "interconnect_gbps": 600.0,
             "cost_per_hour": 2.00,
-            "description": "Standard datacenter GPU with HBM2e"
+            "description": "NVIDIA A100 SXM with 80GB HBM2e",
+            "sources": [
+                "https://www.nvidia.com/en-us/data-center/a100/"
+            ],
+            "is_placeholder": false,
+            "notes": "BF16 Tensor Core peak"
         },
         {
-            "name": "Mid-Range Datacenter GPU",
+            "name": "NVIDIA A100 PCIe 40GB",
+            "vendor": "NVIDIA",
+            "category": "GPU",
+            "peak_tflops": 312.0,
+            "peak_tflops_int8": 624.0,
+            "hbm_gbps": 1555.0,
+            "memory_gb": 40,
+            "sram_gb": 0.040,
+            "interconnect_gbps": null,
+            "cost_per_hour": 1.50,
+            "description": "NVIDIA A100 PCIe with 40GB HBM2e",
+            "sources": [
+                "https://www.nvidia.com/en-us/data-center/a100/"
+            ],
+            "is_placeholder": false,
+            "notes": "Lower memory bandwidth than SXM variant"
+        },
+        {
+            "name": "NVIDIA L40S",
+            "vendor": "NVIDIA",
+            "category": "GPU",
             "peak_tflops": 366.0,
+            "peak_tflops_int8": 733.0,
             "hbm_gbps": 864.0,
+            "memory_gb": 48,
             "sram_gb": 0.048,
             "interconnect_gbps": null,
             "cost_per_hour": 1.50,
-            "description": "Inference-optimized datacenter GPU"
+            "description": "NVIDIA L40S inference-optimized GPU with GDDR6",
+            "sources": [
+                "https://www.nvidia.com/en-us/data-center/l40s/"
+            ],
+            "is_placeholder": false,
+            "notes": "Uses GDDR6, not HBM; lower bandwidth but good for inference"
         },
         {
-            "name": "Consumer High-End GPU",
-            "peak_tflops": 82.6,
-            "hbm_gbps": 1008.0,
-            "sram_gb": 0.072,
-            "interconnect_gbps": null,
-            "cost_per_hour": 0.50,
-            "description": "High-end consumer GPU with GDDR6X"
+            "name": "AMD MI300X",
+            "vendor": "AMD",
+            "category": "GPU",
+            "peak_tflops": 1307.0,
+            "peak_tflops_int8": 2614.0,
+            "hbm_gbps": 5300.0,
+            "memory_gb": 192,
+            "sram_gb": 0.256,
+            "interconnect_gbps": 896.0,
+            "cost_per_hour": 4.00,
+            "description": "AMD Instinct MI300X with 192GB HBM3",
+            "sources": [
+                "https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html"
+            ],
+            "is_placeholder": false,
+            "notes": "BF16 peak; highest memory capacity in class"
         },
         {
-            "name": "Cloud TPU",
+            "name": "AMD MI250X",
+            "vendor": "AMD",
+            "category": "GPU",
+            "peak_tflops": 383.0,
+            "peak_tflops_int8": 383.0,
+            "hbm_gbps": 3276.0,
+            "memory_gb": 128,
+            "sram_gb": 0.008,
+            "interconnect_gbps": 800.0,
+            "cost_per_hour": 2.50,
+            "description": "AMD Instinct MI250X with 128GB HBM2e",
+            "sources": [
+                "https://www.amd.com/en/products/accelerators/instinct/mi200/mi250x.html"
+            ],
+            "is_placeholder": false,
+            "notes": "BF16 matrix peak; used in Frontier supercomputer"
+        },
+        {
+            "name": "Google TPU v5e",
+            "vendor": "Google",
+            "category": "TPU",
             "peak_tflops": 197.0,
+            "peak_tflops_int8": 393.0,
             "hbm_gbps": 1600.0,
+            "memory_gb": 16,
             "sram_gb": 0.016,
             "interconnect_gbps": 400.0,
             "cost_per_hour": 1.20,
-            "description": "Cloud tensor processing unit"
+            "description": "Google Cloud TPU v5e (single chip)",
+            "sources": [
+                "https://cloud.google.com/tpu/docs/v5e"
+            ],
+            "is_placeholder": false,
+            "notes": "BF16 peak per chip; designed for inference workloads"
+        },
+        {
+            "name": "Google TPU v5p",
+            "vendor": "Google",
+            "category": "TPU",
+            "peak_tflops": 459.0,
+            "peak_tflops_int8": 918.0,
+            "hbm_gbps": 4800.0,
+            "memory_gb": 95,
+            "sram_gb": 0.095,
+            "interconnect_gbps": 4800.0,
+            "cost_per_hour": 3.00,
+            "description": "Google Cloud TPU v5p (single chip)",
+            "sources": [
+                "https://cloud.google.com/tpu/docs/v5p"
+            ],
+            "is_placeholder": false,
+            "notes": "BF16 peak per chip; training-optimized"
+        },
+        {
+            "name": "NVIDIA RTX 4090",
+            "vendor": "NVIDIA",
+            "category": "GPU",
+            "peak_tflops": 82.6,
+            "peak_tflops_int8": 660.0,
+            "hbm_gbps": 1008.0,
+            "memory_gb": 24,
+            "sram_gb": 0.072,
+            "interconnect_gbps": null,
+            "cost_per_hour": 0.50,
+            "description": "NVIDIA GeForce RTX 4090 consumer GPU",
+            "sources": [
+                "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4090/"
+            ],
+            "is_placeholder": false,
+            "notes": "FP16 Tensor Core peak; uses GDDR6X memory"
+        },
+        {
+            "name": "NVIDIA RTX 4080",
+            "vendor": "NVIDIA",
+            "category": "GPU",
+            "peak_tflops": 48.7,
+            "peak_tflops_int8": 390.0,
+            "hbm_gbps": 717.0,
+            "memory_gb": 16,
+            "sram_gb": 0.064,
+            "interconnect_gbps": null,
+            "cost_per_hour": 0.35,
+            "description": "NVIDIA GeForce RTX 4080 consumer GPU",
+            "sources": [
+                "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4080-family/"
+            ],
+            "is_placeholder": false,
+            "notes": "FP16 Tensor Core peak; uses GDDR6X memory"
+        },
+        {
+            "name": "NVIDIA RTX 5090",
+            "vendor": "NVIDIA",
+            "category": "GPU",
+            "peak_tflops": 104.9,
+            "peak_tflops_int8": 838.0,
+            "hbm_gbps": 1792.0,
+            "memory_gb": 32,
+            "sram_gb": 0.096,
+            "interconnect_gbps": null,
+            "cost_per_hour": 0.75,
+            "description": "NVIDIA GeForce RTX 5090 consumer GPU (Blackwell)",
+            "sources": [
+                "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/"
+            ],
+            "is_placeholder": false,
+            "notes": "FP16 peak; uses GDDR7 memory with 1.8TB/s bandwidth"
+        },
+        {
+            "name": "AMD RX 7900 XTX",
+            "vendor": "AMD",
+            "category": "GPU",
+            "peak_tflops": 61.4,
+            "peak_tflops_int8": 123.0,
+            "hbm_gbps": 960.0,
+            "memory_gb": 24,
+            "sram_gb": 0.096,
+            "interconnect_gbps": null,
+            "cost_per_hour": 0.40,
+            "description": "AMD Radeon RX 7900 XTX consumer GPU",
+            "sources": [
+                "https://www.amd.com/en/products/graphics/amd-radeon-rx-7900xtx"
+            ],
+            "is_placeholder": false,
+            "notes": "FP16 peak; uses GDDR6 memory; has 96MB Infinity Cache"
         },
         {
             "name": "Generic Cloud GPU",
+            "vendor": null,
+            "category": "GPU",
             "peak_tflops": 150.0,
             "hbm_gbps": 1000.0,
+            "memory_gb": 32,
             "sram_gb": 0.032,
             "interconnect_gbps": null,
             "cost_per_hour": 1.00,
-            "description": "Typical mid-range cloud GPU instance"
+            "description": "Generic mid-range cloud GPU archetype",
+            "sources": [],
+            "is_placeholder": false,
+            "notes": "Approximate values for planning purposes"
         }
     ]
 }

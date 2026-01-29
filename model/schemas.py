@@ -168,6 +168,7 @@ class HardwareConfig:
         name: Human-readable name for this hardware
         peak_tflops: Peak compute performance in TFLOP/s (FP16/BF16)
         hbm_gbps: HBM memory bandwidth in GB/s
+        memory_gb: Total device memory in GB (optional, for memory fit check)
         sram_gb: On-chip SRAM/cache in GB (optional)
         interconnect_gbps: Interconnect bandwidth in GB/s (optional, for multi-GPU)
         cost_per_hour: Cost per hour in USD (optional)
@@ -175,6 +176,7 @@ class HardwareConfig:
     name: str
     peak_tflops: float  # TFLOP/s
     hbm_gbps: float  # GB/s
+    memory_gb: Optional[float] = None  # GB (total device memory)
     sram_gb: Optional[float] = None  # GB
     interconnect_gbps: Optional[float] = None  # GB/s
     cost_per_hour: Optional[float] = None  # USD
@@ -184,6 +186,8 @@ class HardwareConfig:
         validate_positive(self.peak_tflops, "peak_tflops")
         validate_positive(self.hbm_gbps, "hbm_gbps")
         
+        if self.memory_gb is not None:
+            validate_positive(self.memory_gb, "memory_gb")
         if self.sram_gb is not None:
             validate_non_negative(self.sram_gb, "sram_gb")
         if self.interconnect_gbps is not None:

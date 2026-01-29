@@ -195,3 +195,78 @@ class TestSensitivityAnalysis:
         assert "high_deltas" in tornado
         assert "base_throughput" in tornado
         assert len(tornado["parameters"]) == len(tornado["low_deltas"])
+
+
+class TestPresetLoading:
+    """Tests for preset loading with new optional fields."""
+
+    def test_hardware_presets_load_with_metadata(self):
+        """Presets should load even with new optional metadata fields."""
+        from model.presets import load_hardware_presets, load_hardware_presets_with_meta
+        
+        # Basic loader should work
+        presets = load_hardware_presets()
+        assert len(presets) > 0
+        
+        # All presets should be valid HardwareConfig instances
+        for preset in presets:
+            assert preset.name is not None
+            assert preset.peak_tflops > 0
+            assert preset.hbm_gbps > 0
+
+    def test_hardware_presets_meta_has_sources(self):
+        """Hardware presets with metadata should include sources."""
+        from model.presets import load_hardware_presets_with_meta
+        
+        presets = load_hardware_presets_with_meta()
+        assert len(presets) > 0
+        
+        # At least some presets should have sources
+        presets_with_sources = [p for p in presets if p.sources]
+        assert len(presets_with_sources) > 0
+
+    def test_workload_presets_load_with_metadata(self):
+        """Workload presets should load even with new optional metadata fields."""
+        from model.presets import load_workload_presets, load_workload_presets_with_meta
+        
+        # Basic loader should work
+        presets = load_workload_presets()
+        assert len(presets) > 0
+        
+        # All presets should be valid WorkloadConfig instances
+        for preset in presets:
+            assert preset.name is not None
+            assert preset.params_b > 0
+            assert preset.n_layers > 0
+
+    def test_placeholder_entries_skipped_in_basic_loader(self):
+        """Placeholder entries without required fields should be skipped."""
+        from model.presets import load_workload_presets, load_workload_presets_with_meta
+        
+        # Basic loader should skip incomplete placeholders
+        basic = load_workload_presets()
+        
+        # Meta loader should include all (even placeholders)
+        meta = load_workload_presets_with_meta()
+        
+        # Meta should have >= basic (may have placeholders)
+        assert len(meta) >= len(basic)
+        
+        # All basic presets should be usable
+        for preset in basic:
+            assert preset.n_layers > 0
+            assert preset.hidden_size > 0
+
+    def test_placeholder_entries_in_meta_loader(self):
+        """Meta loader should include placeholder entries with is_placeholder=True."""
+        from model.presets import load_workload_presets_with_meta
+        
+        presets = load_workload_presets_with_meta()
+        
+        # Find any placeholders
+        placeholders = [p for p in presets if p.is_placeholder]
+        
+        # Placeholders should have notes explaining why
+        for ph in placeholders:
+            assert ph.notes is not None or ph.description is not None
+

@@ -1,43 +1,260 @@
 {
   "presets": [
     {
-      "name": "LLaMA-2 7B",
-      "params_b": 7.0,
+      "name": "Llama-3.1 8B",
+      "model_family": "Llama",
+      "params_b": 8.03,
       "n_layers": 32,
       "hidden_size": 4096,
       "n_heads": 32,
-      "seq_len": 2048,
+      "seq_len": 4096,
       "batch": 1,
       "weight_dtype": "bf16",
       "kv_dtype": "bf16",
       "kv_compression": 1.0,
-      "description": "7B parameter model (Llama-2 style architecture)"
+      "gqa": true,
+      "description": "Meta Llama 3.1 8B with GQA (8 KV heads)",
+      "sources": [
+        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses Grouped Query Attention with 8 KV heads"
     },
     {
-      "name": "LLaMA-2 13B",
-      "params_b": 13.0,
-      "n_layers": 40,
-      "hidden_size": 5120,
-      "n_heads": 40,
-      "seq_len": 2048,
-      "batch": 1,
-      "weight_dtype": "bf16",
-      "kv_dtype": "bf16",
-      "kv_compression": 1.0,
-      "description": "13B parameter model (Llama-2 style architecture)"
-    },
-    {
-      "name": "LLaMA-2 70B",
-      "params_b": 70.0,
+      "name": "Llama-3.1 70B",
+      "model_family": "Llama",
+      "params_b": 70.6,
       "n_layers": 80,
       "hidden_size": 8192,
       "n_heads": 64,
-      "seq_len": 2048,
+      "seq_len": 4096,
       "batch": 1,
       "weight_dtype": "bf16",
       "kv_dtype": "bf16",
       "kv_compression": 1.0,
-      "description": "70B parameter model (Llama-2 style architecture)"
+      "gqa": true,
+      "description": "Meta Llama 3.1 70B with GQA (8 KV heads)",
+      "sources": [
+        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses Grouped Query Attention with 8 KV heads"
+    },
+    {
+      "name": "Llama-3.1 405B",
+      "model_family": "Llama",
+      "params_b": 405.0,
+      "n_layers": 126,
+      "hidden_size": 16384,
+      "n_heads": 128,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Meta Llama 3.1 405B with GQA (8 KV heads)",
+      "sources": [
+        "https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md"
+      ],
+      "is_placeholder": false,
+      "notes": "Largest open-weight model; requires multi-GPU deployment"
+    },
+    {
+      "name": "Qwen2.5 7B",
+      "model_family": "Qwen",
+      "params_b": 7.6,
+      "n_layers": 28,
+      "hidden_size": 3584,
+      "n_heads": 28,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Alibaba Qwen2.5 7B with GQA",
+      "sources": [
+        "https://github.com/QwenLM/Qwen2.5"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses Grouped Query Attention with 4 KV heads"
+    },
+    {
+      "name": "Qwen2.5 72B",
+      "model_family": "Qwen",
+      "params_b": 72.7,
+      "n_layers": 80,
+      "hidden_size": 8192,
+      "n_heads": 64,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Alibaba Qwen2.5 72B with GQA",
+      "sources": [
+        "https://github.com/QwenLM/Qwen2.5"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses Grouped Query Attention with 8 KV heads"
+    },
+    {
+      "name": "DeepSeek-V2 Lite",
+      "model_family": "DeepSeek",
+      "params_b": 15.7,
+      "n_layers": 27,
+      "hidden_size": 2048,
+      "n_heads": 16,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "mqa": true,
+      "description": "DeepSeek-V2 Lite with MLA (Multi-Head Latent Attention)",
+      "sources": [
+        "https://arxiv.org/abs/2405.04434"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses Multi-Head Latent Attention for KV cache compression"
+    },
+    {
+      "name": "DeepSeek-V2",
+      "model_family": "DeepSeek",
+      "params_b": 236.0,
+      "n_layers": 60,
+      "hidden_size": 5120,
+      "n_heads": 128,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "description": "DeepSeek-V2 236B MoE (21B active)",
+      "sources": [
+        "https://arxiv.org/abs/2405.04434"
+      ],
+      "is_placeholder": false,
+      "notes": "MoE model with 21B active params; dense calc here uses full 236B for weight reads"
+    },
+    {
+      "name": "Yi-1.5 34B",
+      "model_family": "Yi",
+      "params_b": 34.0,
+      "n_layers": 60,
+      "hidden_size": 7168,
+      "n_heads": 56,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "01.AI Yi-1.5 34B with GQA",
+      "sources": [
+        "https://github.com/01-ai/Yi"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses Grouped Query Attention with 8 KV heads"
+    },
+    {
+      "name": "Mistral 7B",
+      "model_family": "Mistral",
+      "params_b": 7.3,
+      "n_layers": 32,
+      "hidden_size": 4096,
+      "n_heads": 32,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Mistral 7B v0.1 with sliding window attention",
+      "sources": [
+        "https://mistral.ai/news/announcing-mistral-7b/"
+      ],
+      "is_placeholder": false,
+      "notes": "Uses GQA with 8 KV heads; sliding window attention"
+    },
+    {
+      "name": "Mixtral 8x7B",
+      "model_family": "Mistral",
+      "params_b": 46.7,
+      "n_layers": 32,
+      "hidden_size": 4096,
+      "n_heads": 32,
+      "seq_len": 4096,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "gqa": true,
+      "description": "Mixtral 8x7B MoE (12.9B active)",
+      "sources": [
+        "https://mistral.ai/news/mixtral-of-experts/"
+      ],
+      "is_placeholder": false,
+      "notes": "MoE with 8 experts, 2 active per token; uses GQA"
+    },
+    {
+      "name": "Claude 3.5 Sonnet (Archetype)",
+      "model_family": "Claude",
+      "params_b": null,
+      "n_layers": null,
+      "hidden_size": null,
+      "n_heads": null,
+      "seq_len": 200000,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "description": "Anthropic Claude 3.5 Sonnet - architecture not public",
+      "sources": [
+        "https://www.anthropic.com/claude"
+      ],
+      "is_placeholder": true,
+      "notes": "CLOSED MODEL: Architecture details not publicly disclosed. Use for context length comparison only. Enter custom architecture to analyze."
+    },
+    {
+      "name": "Gemini 1.5 Pro (Archetype)",
+      "model_family": "Gemini",
+      "params_b": null,
+      "n_layers": null,
+      "hidden_size": null,
+      "n_heads": null,
+      "seq_len": 1000000,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "description": "Google Gemini 1.5 Pro - architecture not public",
+      "sources": [
+        "https://deepmind.google/technologies/gemini/"
+      ],
+      "is_placeholder": true,
+      "notes": "CLOSED MODEL: Architecture details not publicly disclosed. 1M token context. Enter custom architecture to analyze."
+    },
+    {
+      "name": "GPT-4 (Archetype)",
+      "model_family": "GPT",
+      "params_b": null,
+      "n_layers": null,
+      "hidden_size": null,
+      "n_heads": null,
+      "seq_len": 128000,
+      "batch": 1,
+      "weight_dtype": "bf16",
+      "kv_dtype": "bf16",
+      "kv_compression": 1.0,
+      "description": "OpenAI GPT-4 - architecture not public",
+      "sources": [
+        "https://openai.com/gpt-4"
+      ],
+      "is_placeholder": true,
+      "notes": "CLOSED MODEL: Architecture details not publicly disclosed. Rumored to be MoE but unconfirmed. Enter custom architecture to analyze."
     }
   ]
 }
